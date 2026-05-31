@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 /**
- * --- IMAGE HASH (lightweight pHash style) ---
+ * --- IMAGE HASH (pHash-style lightweight) ---
  */
 
 function getImageData(file) {
@@ -53,7 +53,7 @@ function similarity(a, b) {
 }
 
 /**
- * --- MARKET SEARCH GENERATOR ---
+ * --- SEARCH LINKS ---
  */
 
 function generateSearchLinks(query) {
@@ -67,7 +67,8 @@ function generateSearchLinks(query) {
 export default function App() {
   const [queryImage, setQueryImage] = useState(null);
   const [dbImages, setDbImages] = useState([]);
-  const [result, setResult] = useState(null);
+  const [results, setResults] = useState([]);
+  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
 
   async function handleQuery(e) {
@@ -89,7 +90,7 @@ export default function App() {
     const queryGray = await getImageData(queryImage);
     const queryHash = buildHash(queryGray);
 
-    let best = { name: "Unknown Prototype Device", score: 0 };
+    let matches = [];
 
     for (let img of dbImages) {
       const gray = await getImageData(img);
@@ -97,35 +98,114 @@ export default function App() {
 
       const score = similarity(queryHash, hash);
 
-      if (score > best.score) {
-        best = {
-          name: img.name.replace(/\.[^/.]+$/, ""),
-          score
-        };
-      }
+      matches.push({
+        name: img.name.replace(/\.[^/.]+$/, ""),
+        score: Number(score.toFixed(1))
+      });
     }
 
-    const links = generateSearchLinks(best.name);
+    matches.sort((a, b) => b.score - a.score);
 
-    setResult({
-      name: best.name,
-      score: best.score.toFixed(1),
-      links
-    });
+    const top5 = matches.slice(0, 5).map((m) => ({
+      ...m,
+      links: generateSearchLinks(m.name)
+    }));
+
+    setResults(top5);
+    setHistory((h) => [top5[0], ...h].slice(0, 10));
 
     setLoading(false);
   }
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>Prototype Search Engine</h1>
+    <div style={{ padding: 20, fontFamily: "Arial", background: "#f5f5f5" }}>
+      <h1>🧠 Pro Collector Engine</h1>
 
-      <p>Upload a prototype image and search your database + marketplaces</p>
+      <p>Upload a prototype image + your database of known devices</p>
 
-      <h3>Query Image</h3>
-      <input type="file" accept="image/*" onChange={handleQuery} />
+      <div style={{ marginTop: 20 }}>
+        <h3>Query Image</h3>
+        <input type="file" accept="image/*" onChange={handleQuery} />
+      </div>
 
-      <h3>Database (known prototypes)</h3>
-      <input type="file" accept="image/*" multiple onChange={handleDb} />
+      <div style={{ marginTop: 20 }}>
+        <h3>Prototype Database</h3>
+        <input type="file" accept="image/*" multiple onChange={handleDb} />
+      </div>
 
-      <button on
+      <button
+        onClick={runMatch}
+        style={{
+          marginTop: 20,
+          padding: "10px 15px",
+          cursor: "pointer",
+          background: "#111",
+          color: "#fff",
+          border: "none",
+          borderRadius: 6
+        }}
+      >
+        {loading ? "Scanning Collection..." : "Run Collector Scan"}
+      </button>
+
+      {/* RESULTS */}
+      {results.length > 0 && (
+        <div style={{ marginTop: 30 }}>
+          <h2>Top Matches</h2>
+
+          {results.map((r, i) => (
+            <div
+              key={i}
+              style={{
+                background: "#fff",
+                padding: 15,
+                marginBottom: 15,
+                borderRadius: 10,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
+              }}
+            >
+              <h3>
+                #{i + 1} {r.name}
+              </h3>
+
+              <div
+                style={{
+                  height: 10,
+                  background: "#eee",
+                  borderRadius: 5,
+                  overflow: "hidden"
+                }}
+              >
+                <div
+                  style={{
+                    width: `${r.score}%`,
+                    height: "100%",
+                    background: r.score > 70 ? "green" : r.score > 40 ? "orange" : "red"
+                  }}
+                />
+              </div>
+
+              <p>Confidence: {r.score}%</p>
+
+              <div style={{ marginTop: 10 }}>
+                <a href={r.links.ebay} target="_blank">
+                  eBay
+                </a>{" "}
+                |{" "}
+                <a href={r.links.google} target="_blank">
+                  Google
+                </a>{" "}
+                |{" "}
+                <a href={r.links.marketplace} target="_blank">
+                  Marketplace
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* HISTORY */}
+      {history.length > 0 && (
+        <div style={{ marginTop: 40 }}>
+          <h2>Recent
