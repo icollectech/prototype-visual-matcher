@@ -1,7 +1,9 @@
 import { useState } from "react";
 
 /**
- * --- IMAGE HASHING (pHash-style lightweight) ---
+ * ----------------------------
+ * IMAGE MATCHING (pHash-lite)
+ * ----------------------------
  */
 
 function getImageData(file) {
@@ -86,21 +88,23 @@ export default function App() {
 
       const score = similarity(queryHash, hash);
 
-      const name = img.name.replace(/\.[^/.]+$/, "");
+      const rawName = img.name.replace(/\.[^/.]+$/, "");
+
+      // clean collector search term
+      const searchQuery =
+        rawName.replace(/IMG|DSC|photo|image|screenshot/gi, "").trim() +
+        " prototype EVT Apple device";
 
       matches.push({
-        name,
+        name: rawName,
         score: Number(score.toFixed(1)),
         preview: URL.createObjectURL(img),
 
-        // 🔥 INSTANT MARKET SEARCH ENGINE LINKS
-        links: {
-          ebayAll: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(name)}`,
-          ebayBuyNow: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(name)}&LH_BIN=1`,
-          ebaySold: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(name)}&LH_Sold=1&LH_Complete=1`,
-          google: `https://www.google.com/search?q=${encodeURIComponent(name + " prototype device")}`,
-          reddit: `https://www.google.com/search?q=${encodeURIComponent("site:reddit.com " + name + " prototype")}`,
-          marketplace: `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(name)}`
+        // marketplace search engines (NO APIs)
+        listings: {
+          ebay: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchQuery)}`,
+          mercari: `https://www.mercari.com/search/?keyword=${encodeURIComponent(searchQuery)}`,
+          goofish: `https://www.goofish.com/search?q=${encodeURIComponent(searchQuery)}`
         }
       });
     }
@@ -119,7 +123,7 @@ export default function App() {
     <div style={{ padding: 20, fontFamily: "Arial", background: "#f5f5f5" }}>
       <h1>🧠 Pro Collector Search Engine</h1>
 
-      <p>Upload a prototype image + database of known devices</p>
+      <p>Match prototypes + explore marketplace listings instantly</p>
 
       {/* INPUTS */}
       <div style={{ marginTop: 20 }}>
@@ -128,7 +132,7 @@ export default function App() {
       </div>
 
       <div style={{ marginTop: 20 }}>
-        <h3>Prototype Database</h3>
+        <h3>Database Images</h3>
         <input type="file" accept="image/*" multiple onChange={handleDb} />
       </div>
 
@@ -144,13 +148,13 @@ export default function App() {
           borderRadius: 6
         }}
       >
-        {loading ? "Scanning Markets..." : "Run Collector Scan"}
+        {loading ? "Scanning..." : "Run Collector Scan"}
       </button>
 
       {/* RESULTS */}
       {results.length > 0 && (
         <div style={{ marginTop: 30 }}>
-          <h2>Top Matches</h2>
+          <h2>Potential Matches</h2>
 
           {results.map((r, i) => (
             <div
@@ -164,13 +168,13 @@ export default function App() {
               }}
             >
               {/* HEADER */}
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 12 }}>
                 <img
                   src={r.preview}
                   alt={r.name}
                   style={{
-                    width: 60,
-                    height: 60,
+                    width: 70,
+                    height: 70,
                     objectFit: "cover",
                     borderRadius: 8,
                     border: "1px solid #ddd"
@@ -181,7 +185,10 @@ export default function App() {
                   <h3 style={{ margin: 0 }}>
                     #{i + 1} {r.name}
                   </h3>
-                  <p style={{ margin: 0 }}>Confidence: {r.score}%</p>
+
+                  <p style={{ margin: 0 }}>
+                    Match Score: {r.score}%
+                  </p>
                 </div>
               </div>
 
@@ -205,14 +212,26 @@ export default function App() {
                 />
               </div>
 
-              {/* MARKET SEARCH LINKS */}
-              <div style={{ marginTop: 10, fontSize: 14 }}>
-                <a href={r.links.ebayAll} target="_blank">eBay All</a> |{" "}
-                <a href={r.links.ebayBuyNow} target="_blank">Buy Now</a> |{" "}
-                <a href={r.links.ebaySold} target="_blank">Sold Prices</a> |{" "}
-                <a href={r.links.google} target="_blank">Google</a> |{" "}
-                <a href={r.links.reddit} target="_blank">Collectors</a> |{" "}
-                <a href={r.links.marketplace} target="_blank">Marketplace</a>
+              {/* LISTINGS */}
+              <div style={{ marginTop: 10 }}>
+                <b>Find Listings:</b>
+                <ul>
+                  <li>
+                    <a href={r.listings.ebay} target="_blank">
+                      eBay Listings
+                    </a>
+                  </li>
+                  <li>
+                    <a href={r.listings.mercari} target="_blank">
+                      Mercari Listings
+                    </a>
+                  </li>
+                  <li>
+                    <a href={r.listings.goofish} target="_blank">
+                      Goofish Listings
+                    </a>
+                  </li>
+                </ul>
               </div>
             </div>
           ))}
