@@ -5,57 +5,84 @@ const DATABASE = [
     id: 1,
     name: "iPhone 2G Prototype EVT",
     tags: ["iphone", "prototype", "evt"],
-    imageHint: "iphone early prototype"
   },
   {
     id: 2,
     name: "iPod Touch Engineering Sample",
     tags: ["ipod", "touch", "dvt"],
-    imageHint: "ipod prototype"
   },
   {
     id: 3,
     name: "MacBook Unibody EVT Unit",
     tags: ["macbook", "prototype", "aluminum"],
-    imageHint: "macbook prototype"
+  },
+  {
+    id: 4,
+    name: "Apple Internal Test iPhone",
+    tags: ["iphone", "internal", "test"],
   }
 ]
 
-function fakeScore(input, item) {
-  const text = input.toLowerCase()
-  let score = 0
-
-  item.tags.forEach(tag => {
-    if (text.includes(tag)) score += 40
-  })
-
-  if (text.length > 0 && item.name.toLowerCase().includes(text)) {
-    score += 30
+// “AI-style embedding” (no API keys, simulates real vector matching)
+function embed(text) {
+  const map = {
+    iphone: 2,
+    ipod: 3,
+    macbook: 4,
+    prototype: 5,
+    evt: 6,
+    dvt: 7,
+    internal: 8,
+    aluminum: 9,
+    test: 10
   }
 
-  return Math.min(score, 99)
+  let score = 0
+
+  Object.keys(map).forEach((key) => {
+    if (text.toLowerCase().includes(key)) {
+      score += map[key]
+    }
+  })
+
+  return score
+}
+
+function similarityScore(input, item) {
+  const a = embed(input)
+  const b = embed(item.name + " " + item.tags.join(" "))
+
+  const diff = Math.abs(a - b)
+  const score = Math.max(0, 100 - diff * 10)
+
+  return Math.round(score)
 }
 
 export default function App() {
-  const [image, setImage] = useState(null)
   const [query, setQuery] = useState("")
+  const [image, setImage] = useState(null)
 
   const results = useMemo(() => {
     if (!query && !image) return []
 
     return DATABASE
-      .map(item => ({
+      .map((item) => ({
         ...item,
-        score: fakeScore(query, item)
+        score: similarityScore(query, item)
       }))
       .sort((a, b) => b.score - a.score)
   }, [query, image])
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial", maxWidth: 900, margin: "0 auto" }}>
-      <h1>Prototype Image Matcher</h1>
+    <div style={{
+      padding: 20,
+      fontFamily: "Arial",
+      maxWidth: 900,
+      margin: "0 auto"
+    }}>
+      <h1>Prototype Visual Matcher</h1>
 
-      {/* Upload (simulated for now) */}
+      {/* Upload (placeholder for real image AI later) */}
       <input
         type="file"
         accept="image/*"
@@ -63,19 +90,19 @@ export default function App() {
       />
 
       <input
-        placeholder="Describe image (e.g. iphone prototype EVT)"
+        placeholder="Describe or tag image (iphone prototype EVT...)"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         style={{
           width: "100%",
-          padding: 10,
+          padding: 12,
           marginTop: 10,
           marginBottom: 20
         }}
       />
 
-      <div style={{ display: "grid", gap: 10 }}>
-        {results.map(item => (
+      <div style={{ display: "grid", gap: 12 }}>
+        {results.map((item) => (
           <div
             key={item.id}
             style={{
