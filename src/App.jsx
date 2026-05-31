@@ -1,126 +1,150 @@
-import { useState, useRef } from "react";
-import * as mobilenet from "@tensorflow-models/mobilenet";
-import "@tensorflow/tfjs";
+import { useState } from "react";
+import "./App.css";
+import marketplaceIndex from "../output-index.json";
 
 export default function App() {
   const [queryImage, setQueryImage] = useState(null);
-  const [dbImages, setDbImages] = useState([]);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const modelRef = useRef(null);
+  function scoreMatch(filename, queryName) {
+    const q = queryName.toLowerCase();
 
-  async function loadModel() {
-    if (!modelRef.current) {
-      modelRef.current = await mobilenet.load();
-    }
-    return modelRef.current;
-  }
+    let score = 0;
 
-  async function embed(model, file) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.src = URL.createObjectURL(file);
+    if (
+      filename.toLowerCase().includes("ebay")
+    )
+      score += 15;
 
-      img.onload = async () => {
-        const tensor = model.infer(img, true);
-        const arr = await tensor.array();
-        resolve(arr[0]);
-      };
+    if (
+      filename.toLowerCase().includes("prototype")
+    )
+      score += 20;
+
+    const words = q.split(" ");
+
+    words.forEach(word => {
+      if (
+        filename
+          .toLowerCase()
+          .includes(word)
+      ) {
+        score += 10;
+      }
     });
+
+    return score;
   }
 
-  function cosine(a, b) {
-    let dot = 0, magA = 0, magB = 0;
+  function handleFileUpload(e) {
+    const file = e.target.files[0];
 
-    for (let i = 0; i < a.length; i++) {
-      dot += a[i] * b[i];
-      magA += a[i] * a[i];
-      magB += b[i] * b[i];
-    }
+    if (!file) return;
 
-    return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+    setQueryImage(URL.createObjectURL(file));
   }
 
-  async function runScan() {
-    if (!queryImage || dbImages.length === 0) {
-      alert("Upload query + dataset images");
-      return;
-    }
+  async function runMatch() {
+    if (!queryImage) return;
 
     setLoading(true);
 
-    const model = await loadModel();
+    const fileName =
+      document.querySelector(
+        'input[type="file"]'
+      ).files[0].name || "";
 
-    const qVec = await embed(model, queryImage);
-
-    let matches = [];
-
-    for (let file of dbImages) {
-      const vec = await embed(model, file);
-
-      const score = cosine(qVec, vec);
-
-      const name = file.name.replace(/\.[^/.]+$/, "");
-
-      matches.push({
-        name,
-        score: Math.round(score * 100),
-        image: URL.createObjectURL(file)
-      });
-    }
-
-    matches.sort((a, b) => b.score - a.score);
-
-    const top = matches.slice(0, 5);
-
-    const best = top[0];
-
-    const query = `${best.name} prototype apple device EVT teardown`;
-
-    setResults(
-      top.map((r) => ({
-        ...r,
-        links: {
-          ebay: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`,
-          mercari: `https://www.mercari.com/search/?keyword=${encodeURIComponent(query)}`
-        }
+    const ranked = marketplaceIndex
+      .map(item => ({
+        ...item,
+        score: scoreMatch(
+          item.file,
+          fileName
+        )
       }))
-    );
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20);
 
+    setResults(ranked);
     setLoading(false);
   }
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>🧠 AI Vision Engine (CLIP-style)</h1>
+    <div className="app">
+      <h1>
+        Prototype Marketplace Scanner
+      </h1>
 
-      <h3>Query Image</h3>
-      <input type="file" accept="image/*" onChange={(e) => setQueryImage(e.target.files[0])} />
-
-      <h3>Dataset Images</h3>
       <input
         type="file"
-        multiple
         accept="image/*"
-        onChange={(e) => setDbImages(Array.from(e.target.files))}
+        onChange={handleFileUpload}
       />
 
-      <br /><br />
-
-      <button onClick={runScan}>
-        {loading ? "Analyzing..." : "Run AI Vision Match"}
+      <button onClick={runMatch}>
+        Run AI Match
       </button>
 
-      <div style={{ marginTop: 20 }}>
-        {results.map((r, i) => (
-          <div key={i} style={{ border: "1px solid #ddd", padding: 10 }}>
-            <img src={r.image} width="80" />
-            <h3>{r.name}</h3>
-            <p>Similarity: {r.score}%</p>
+      {queryImage && (
+        <div style={{ marginTop: 20 }}>
+          <h3>Query Image</h3>
+          <img
+            src={queryImage}
+            alt="query"
+            style={{
+              width: 220,
+              borderRadius: 12
+            }}
+          />
+        </div>
+      )}
 
-            <a href={r.links.ebay} target="_blank">eBay</a> |{" "}
-            <a href={r.links.mercari} target="_blank">Mercari</a>
+      {loading && (
+        <p>Scanning marketplace...</p>
+      )}
+
+      <div
+        style={{
+          marginTop: 30,
+          display: "grid",
+          gridTemplateColumns:
+            "repeat(auto-fill,minmax(220px,1fr))",
+          gap: 20
+        }}
+      >
+        {results.map((item, i) => (
+          <div
+            key={i}
+            style={{
+              border:
+                "1px solid #333",
+              borderRadius: 12,
+              padding: 12
+            }}
+          >
+            <img
+              src={`/dataset/${item.file}`}
+              alt={item.title}
+              style={{
+                width: "100%",
+                borderRadius: 10
+              }}
+            />
+
+            <h4>{item.title}</h4>
+
+            <p>
+              Match Score:{" "}
+              {item.score}
+            </p>
+
+            <a
+              href={item.url}
+              target="_blank"
+            >
+              Open Listing
+            </a>
           </div>
         ))}
       </div>
