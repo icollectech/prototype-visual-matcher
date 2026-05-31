@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-function getPixels(file) {
+function extractSimpleFeatures(file) {
   return new Promise((resolve) => {
     const img = new Image();
     img.src = URL.createObjectURL(file);
@@ -9,113 +9,101 @@ function getPixels(file) {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
 
-      canvas.width = 12;
-      canvas.height = 12;
+      canvas.width = 10;
+      canvas.height = 10;
 
-      ctx.drawImage(img, 0, 0, 12, 12);
+      ctx.drawImage(img, 0, 0, 10, 10);
 
-      const data = ctx.getImageData(0, 0, 12, 12).data;
+      const data = ctx.getImageData(0, 0, 10, 10).data;
 
-      let arr = [];
+      let brightness = 0;
 
       for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-
-        arr.push((r + g + b) / 3);
+        brightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
       }
 
-      resolve(arr);
+      brightness = brightness / (data.length / 4);
+
+      resolve({ brightness });
     };
   });
 }
 
-function similarity(a, b) {
-  let diff = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    diff += Math.abs(a[i] - b[i]);
-  }
-
-  return Math.max(0, 100 - diff / 8);
+function classifyIntent({ brightness }) {
+  // VERY simple heuristic “AI”
+  if (brightness < 80) return "iphone motherboard prototype";
+  if (brightness < 120) return "iphone parts teardown";
+  if (brightness < 160) return "apple device internal components";
+  return "smartphone device housing";
 }
 
 export default function App() {
-  const [queryImage, setQueryImage] = useState(null);
-  const [dataset, setDataset] = useState([]);
+  const [image, setImage] = useState(null);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
 
   async function runScan() {
-    if (!queryImage || dataset.length === 0) {
-      alert("Upload query image + dataset images");
-      return;
-    }
+    if (!image) return alert("Upload an image");
 
     setLoading(true);
 
-    const qPixels = await getPixels(queryImage);
+    const features = await extractSimpleFeatures(image);
+    const query = classifyIntent(features);
 
-    let matches = [];
+    const ebay = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`;
+    const mercari = `https://www.mercari.com/search/?keyword=${encodeURIComponent(query)}`;
+    const goofish = `https://www.goofish.com/search?q=${encodeURIComponent(query)}`;
 
-    for (let file of dataset) {
-      const pixels = await getPixels(file);
-
-      const score = similarity(qPixels, pixels);
-
-      const name = file.name.replace(/\.[^/.]+$/, "");
-
-      matches.push({
-        name,
-        score: Number(score.toFixed(1)),
-        image: URL.createObjectURL(file)
-      });
-    }
-
-    matches.sort((a, b) => b.score - a.score);
-
-    const top = matches.slice(0, 5);
-
-    setResults(top);
+    setResults([
+      {
+        title: query,
+        ebay,
+        mercari,
+        goofish
+      }
+    ]);
 
     setLoading(false);
   }
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>🧠 Prototype Dataset Matcher (Option A)</h1>
+      <h1>🧠 Marketplace AI Scanner</h1>
 
-      <h3>Query Image</h3>
+      <p>Upload 1 image → get marketplace matches</p>
+
       <input
         type="file"
         accept="image/*"
-        onChange={(e) => setQueryImage(e.target.files[0])}
-      />
-
-      <h3>Dataset (upload MANY images)</h3>
-      <input
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={(e) => setDataset(Array.from(e.target.files))}
+        onChange={(e) => setImage(e.target.files[0])}
       />
 
       <br /><br />
 
       <button onClick={runScan}>
-        {loading ? "Scanning dataset..." : "Run Match"}
+        {loading ? "Scanning..." : "Scan Marketplaces"}
       </button>
 
       <div style={{ marginTop: 20 }}>
         {results.map((r, i) => (
           <div key={i} style={{ border: "1px solid #ddd", padding: 10 }}>
-            <img src={r.image} width="80" />
-            <h3>{r.name}</h3>
-            <p>Match: {r.score}%</p>
+            <h3>Search: {r.title}</h3>
+
+            <ul>
+              <li>
+                <a href={r.ebay} target="_blank">eBay results</a>
+              </li>
+              <li>
+                <a href={r.mercari} target="_blank">Mercari results</a>
+              </li>
+              <li>
+                <a href={r.goofish} target="_blank">Goofish results</a>
+              </li>
+            </ul>
           </div>
         ))}
       </div>
     </div>
   );
 }
+      
