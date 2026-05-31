@@ -2,28 +2,18 @@ export default async function handler(req, res) {
   const { query } = req.body;
 
   if (!query) {
-    return res.status(400).json({ error: "No query provided" });
+    return res.status(400).json({ error: "Missing query" });
   }
 
-  try {
-    // eBay Finding API (public-ish endpoint via search HTML fallback)
-    const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`;
+  const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`;
 
-    // We cannot legally scrape full structured data without API,
-    // so we return structured "listing preview cards" from search context
-
-    const results = [
+  res.status(200).json({
+    results: [
       {
-        title: `${query} (eBay search results)`,
-        source: "eBay",
+        title: query,
         url,
-        image: "https://via.placeholder.com/150",
-        price: "Check listings"
+        image: "https://via.placeholder.com/150"
       }
-    ];
-
-    res.status(200).json({ results });
-  } catch (e) {
-    res.status(500).json({ error: "Search failed" });
-  }
+    ]
+  });
 }
