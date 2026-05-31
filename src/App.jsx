@@ -1,11 +1,7 @@
-
 import { useState } from "react";
 
 /**
- * REALISTIC lightweight perceptual hash (no libraries)
- * - draws image to canvas
- * - reduces to 8x8 grayscale
- * - builds binary hash
+ * --- IMAGE HASH (lightweight pHash style) ---
  */
 
 function getImageData(file) {
@@ -56,68 +52,80 @@ function similarity(a, b) {
   return Math.max(0, 100 - dist * 2.5);
 }
 
+/**
+ * --- MARKET SEARCH GENERATOR ---
+ */
+
+function generateSearchLinks(query) {
+  return {
+    ebay: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`,
+    google: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+    marketplace: `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(query)}`
+  };
+}
+
 export default function App() {
-  const [query, setQuery] = useState(null);
-  const [db, setDb] = useState([]);
-  const [result, setResult] = useState("");
+  const [queryImage, setQueryImage] = useState(null);
+  const [dbImages, setDbImages] = useState([]);
+  const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
   async function handleQuery(e) {
-    setQuery(e.target.files[0]);
+    setQueryImage(e.target.files[0]);
   }
 
   async function handleDb(e) {
-    setDb(Array.from(e.target.files));
+    setDbImages(Array.from(e.target.files));
   }
 
   async function runMatch() {
-    if (!query || db.length === 0) {
-      alert("Upload query + database images first");
+    if (!queryImage || dbImages.length === 0) {
+      alert("Upload query image + database images first");
       return;
     }
 
     setLoading(true);
 
-    const queryGray = await getImageData(query);
+    const queryGray = await getImageData(queryImage);
     const queryHash = buildHash(queryGray);
 
-    let best = { name: "No match", score: 0 };
+    let best = { name: "Unknown Prototype Device", score: 0 };
 
-    for (let img of db) {
+    for (let img of dbImages) {
       const gray = await getImageData(img);
       const hash = buildHash(gray);
 
       const score = similarity(queryHash, hash);
 
       if (score > best.score) {
-        best = { name: img.name, score };
+        best = {
+          name: img.name.replace(/\.[^/.]+$/, ""),
+          score
+        };
       }
     }
 
-    setResult(`${best.name} (${best.score.toFixed(1)}% match)`);
+    const links = generateSearchLinks(best.name);
+
+    setResult({
+      name: best.name,
+      score: best.score.toFixed(1),
+      links
+    });
+
     setLoading(false);
   }
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>Prototype Visual Matcher</h1>
+      <h1>Prototype Search Engine</h1>
+
+      <p>Upload a prototype image and search your database + marketplaces</p>
 
       <h3>Query Image</h3>
       <input type="file" accept="image/*" onChange={handleQuery} />
 
-      <h3>Database Images</h3>
+      <h3>Database (known prototypes)</h3>
       <input type="file" accept="image/*" multiple onChange={handleDb} />
 
-      <button onClick={runMatch} style={{ marginTop: 20 }}>
-        {loading ? "Matching..." : "Run Visual Match"}
-      </button>
-
-      {result && (
-        <div style={{ marginTop: 20 }}>
-          <h3>Best Match:</h3>
-          <p>{result}</p>
-        </div>
-      )}
-    </div>
-  );
-}
+      <button on
