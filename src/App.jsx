@@ -1,83 +1,138 @@
 import { useState } from "react";
 
-function buildQuery(fileName) {
-  return (
-    fileName
-      .replace(/\.[^/.]+$/, "")
-      .replace(/IMG|DSC|photo|image|Screenshot|capture/gi, "")
-      .trim() + " prototype EVT Apple device"
-  );
+/**
+ * ----------------------------
+ * SIMPLE VISUAL MATCH ENGINE
+ * (works offline + mobile-friendly)
+ * ----------------------------
+ */
+
+function getImageData(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      canvas.width = 8;
+      canvas.height = 8;
+
+      ctx.drawImage(img, 0, 0, 8, 8);
+
+      const data = ctx.getImageData(0, 0, 8, 8).data;
+
+      let gray = [];
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        gray.push((r + g + b) / 3);
+      }
+
+      resolve(gray);
+    };
+  });
+}
+
+function buildHash(gray) {
+  const avg = gray.reduce((a, b) => a + b, 0) / gray.length;
+  return gray.map((v) => (v > avg ? 1 : 0)).join("");
+}
+
+function hamming(a, b) {
+  let d = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) d++;
+  }
+  return d;
+}
+
+function similarity(a, b) {
+  return Math.max(0, 100 - hamming(a, b) * 2.5);
 }
 
 export default function App() {
-  const [image, setImage] = useState(null);
+  const [queryImage, setQueryImage] = useState(null);
+  const [dbImages, setDbImages] = useState([]);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  function handleImage(e) {
-    setImage(e.target.files[0]);
-    setResults([]);
-    setError("");
-  }
 
   async function runScan() {
-    if (!image) {
-      alert("Upload image first");
+    if (!queryImage || dbImages.length === 0) {
+      alert("Upload both query + database images");
       return;
     }
 
     setLoading(true);
-    setError("");
-    setResults([]);
 
-    try {
-      const query = buildQuery(image.name);
+    // build query image hash
+    const qGray = await getImageData(queryImage);
+    const qHash = buildHash(qGray);
 
-      console.log("QUERY:", query);
+    let matches = [];
 
-      const res = await fetch("/api/search", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ query })
+    for (let img of dbImages) {
+      const gray = await getImageData(img);
+      const hash = buildHash(gray);
+
+      const score = similarity(qHash, hash);
+
+      const baseName = img.name.replace(/\.[^/.]+$/, "");
+
+      matches.push({
+        name: baseName,
+        score: Number(score.toFixed(1)),
+        image: URL.createObjectURL(img)
       });
-
-      console.log("STATUS:", res.status);
-
-      const text = await res.text();
-      console.log("RAW RESPONSE:", text);
-
-      if (!res.ok) {
-        throw new Error(`Server error ${res.status}`);
-      }
-
-      const data = JSON.parse(text);
-
-      if (!data.results) {
-        throw new Error("No results returned from backend");
-      }
-
-      setResults(data.results);
-    } catch (err) {
-      console.error(err);
-      setError("Backend failed or returned invalid data.");
     }
+
+    // sort best match
+    matches.sort((a, b) => b.score - a.score);
+
+    const top = matches[0];
+
+    // 🔥 USE BEST MATCH TO DRIVE SEARCH
+    const searchQuery = `${top.name} prototype Apple EVT device`;
+
+    const ebay = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchQuery)}`;
+    const mercari = `https://www.mercari.com/search/?keyword=${encodeURIComponent(searchQuery)}`;
+    const goofish = `https://www.goofish.com/search?q=${encodeURIComponent(searchQuery)}`;
+
+    setResults([
+      {
+        ...top,
+        links: { ebay, mercari, goofish }
+      }
+    ]);
 
     setLoading(false);
   }
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial", background: "#f5f5f5" }}>
-      <h1>🧠 Prototype Marketplace Scanner</h1>
+    <div style={{ padding: 20, fontFamily: "Arial" }}>
+      <h1>🧠 Visual Prototype Matcher</h1>
 
-      <p>Upload one image → scan marketplace listings</p>
+      {/* QUERY IMAGE */}
+      <h3>Query Image</h3>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => setQueryImage(e.target.files[0])}
+      />
 
-      <input type="file" accept="image/*" onChange={handleImage} />
+      {/* DATABASE IMAGES */}
+      <h3>Database Images</h3>
+      <input
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={(e) => setDbImages(Array.from(e.target.files))}
+      />
 
-      <br />
-      <br />
+      <br /><br />
 
       <button
         onClick={runScan}
@@ -86,19 +141,11 @@ export default function App() {
           background: "#111",
           color: "#fff",
           border: "none",
-          borderRadius: 6,
-          cursor: "pointer"
+          borderRadius: 6
         }}
       >
-        {loading ? "Scanning..." : "Scan Listings"}
+        {loading ? "Scanning..." : "Run Visual Match"}
       </button>
-
-      {/* ERROR DISPLAY */}
-      {error && (
-        <p style={{ color: "red", marginTop: 10 }}>
-          {error}
-        </p>
-      )}
 
       {/* RESULTS */}
       <div style={{ marginTop: 20 }}>
@@ -106,28 +153,41 @@ export default function App() {
           <div
             key={i}
             style={{
-              background: "#fff",
+              border: "1px solid #ddd",
               padding: 10,
               marginBottom: 10,
-              borderRadius: 8,
-              border: "1px solid #ddd"
+              borderRadius: 8
             }}
           >
-            {r.image && (
-              <img
-                src={r.image}
-                width="80"
-                style={{ borderRadius: 6 }}
-              />
-            )}
+            <img
+              src={r.image}
+              width="80"
+              style={{ borderRadius: 6 }}
+            />
 
-            <h3>{r.title}</h3>
+            <h3>{r.name}</h3>
+            <p>Match Score: {r.score}%</p>
 
-            {r.price && <p>{r.price}</p>}
-
-            <a href={r.url} target="_blank" rel="noreferrer">
-              View Listing
-            </a>
+            <div style={{ marginTop: 10 }}>
+              <b>Marketplace Search:</b>
+              <ul>
+                <li>
+                  <a href={r.links.ebay} target="_blank">
+                    eBay Results
+                  </a>
+                </li>
+                <li>
+                  <a href={r.links.mercari} target="_blank">
+                    Mercari Results
+                  </a>
+                </li>
+                <li>
+                  <a href={r.links.goofish} target="_blank">
+                    Goofish Results
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
         ))}
       </div>
