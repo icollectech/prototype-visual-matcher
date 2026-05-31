@@ -1,31 +1,56 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
+
+const DATABASE = [
+  { name: "iPhone 2G Prototype EVT", match: 95 },
+  { name: "Apple Engineering Sample Device", match: 88 },
+  { name: "MacBook Prototype Unit", match: 81 },
+  { name: "iPod Touch DVT Prototype", match: 78 }
+]
+
+function scoreMatch(query, item) {
+  const q = query.toLowerCase()
+  const n = item.name.toLowerCase()
+
+  let score = 0
+
+  if (!q) return 0
+
+  if (n.includes("iphone") && q.includes("iphone")) score += 40
+  if (n.includes("macbook") && q.includes("macbook")) score += 40
+  if (n.includes("ipod") && q.includes("ipod")) score += 40
+
+  if (n.includes("prototype") && q.includes("prototype")) score += 30
+  if (n.includes("evt") && q.includes("evt")) score += 20
+
+  return Math.min(score, 99)
+}
 
 export default function App() {
   const [image, setImage] = useState(null)
   const [query, setQuery] = useState("")
 
-  // fake results (placeholder for future AI)
-  const results = [
-    { name: "iPhone 2G Prototype EVT", match: "92%" },
-    { name: "iPod Touch Engineering Unit", match: "86%" },
-    { name: "MacBook Prototype EVT", match: "79%" }
-  ]
+  const results = useMemo(() => {
+    return DATABASE
+      .map(item => ({
+        ...item,
+        match: scoreMatch(query, item)
+      }))
+      .sort((a, b) => b.match - a.match)
+  }, [query])
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial", maxWidth: 900, margin: "0 auto" }}>
-      <h1>Image Matcher</h1>
+      <h1>AI Image Matcher (Prototype)</h1>
 
-      {/* Image Upload */}
       <input
         type="file"
         accept="image/*"
         onChange={(e) => setImage(e.target.files[0])}
       />
 
-      {/* Preview */}
       {image && (
-        <div style={{ marginTop: 15 }}>
-          <p>Uploaded:</p>
+        <div style={{ marginTop: 10 }}>
+          <p>Uploaded Image:</p>
           <img
             src={URL.createObjectURL(image)}
             alt="upload"
@@ -34,21 +59,17 @@ export default function App() {
         </div>
       )}
 
-      {/* Optional search text */}
       <input
-        placeholder="Describe image (optional)"
+        placeholder="Describe image (iphone prototype, macbook EVT...)"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         style={{
           width: "100%",
-          padding: 10,
+          padding: 12,
           marginTop: 15,
           marginBottom: 20
         }}
       />
-
-      {/* Results */}
-      <h3>Matches</h3>
 
       <div style={{ display: "grid", gap: 10 }}>
         {results.map((item, i) => (
@@ -61,7 +82,7 @@ export default function App() {
             }}
           >
             <b>{item.name}</b>
-            <div>Match: {item.match}</div>
+            <div>Match: {item.match}%</div>
           </div>
         ))}
       </div>
