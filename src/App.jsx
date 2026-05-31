@@ -1,109 +1,129 @@
-import { useState } from "react";
-
-function extractSimpleFeatures(file) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = URL.createObjectURL(file);
-
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-
-      canvas.width = 10;
-      canvas.height = 10;
-
-      ctx.drawImage(img, 0, 0, 10, 10);
-
-      const data = ctx.getImageData(0, 0, 10, 10).data;
-
-      let brightness = 0;
-
-      for (let i = 0; i < data.length; i += 4) {
-        brightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
-      }
-
-      brightness = brightness / (data.length / 4);
-
-      resolve({ brightness });
-    };
-  });
-}
-
-function classifyIntent({ brightness }) {
-  // VERY simple heuristic “AI”
-  if (brightness < 80) return "iphone motherboard prototype";
-  if (brightness < 120) return "iphone parts teardown";
-  if (brightness < 160) return "apple device internal components";
-  return "smartphone device housing";
-}
+import { useState, useRef } from "react";
+import * as mobilenet from "@tensorflow-models/mobilenet";
+import "@tensorflow/tfjs";
 
 export default function App() {
-  const [image, setImage] = useState(null);
+  const [queryImage, setQueryImage] = useState(null);
+  const [dbImages, setDbImages] = useState([]);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  const modelRef = useRef(null);
+
+  async function loadModel() {
+    if (!modelRef.current) {
+      modelRef.current = await mobilenet.load();
+    }
+    return modelRef.current;
+  }
+
+  async function embed(model, file) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+
+      img.onload = async () => {
+        const tensor = model.infer(img, true);
+        const arr = await tensor.array();
+        resolve(arr[0]);
+      };
+    });
+  }
+
+  function cosine(a, b) {
+    let dot = 0, magA = 0, magB = 0;
+
+    for (let i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      magA += a[i] * a[i];
+      magB += b[i] * b[i];
+    }
+
+    return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+  }
+
   async function runScan() {
-    if (!image) return alert("Upload an image");
+    if (!queryImage || dbImages.length === 0) {
+      alert("Upload query + dataset images");
+      return;
+    }
 
     setLoading(true);
 
-    const features = await extractSimpleFeatures(image);
-    const query = classifyIntent(features);
+    const model = await loadModel();
 
-    const ebay = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`;
-    const mercari = `https://www.mercari.com/search/?keyword=${encodeURIComponent(query)}`;
-    const goofish = `https://www.goofish.com/search?q=${encodeURIComponent(query)}`;
+    const qVec = await embed(model, queryImage);
 
-    setResults([
-      {
-        title: query,
-        ebay,
-        mercari,
-        goofish
-      }
-    ]);
+    let matches = [];
+
+    for (let file of dbImages) {
+      const vec = await embed(model, file);
+
+      const score = cosine(qVec, vec);
+
+      const name = file.name.replace(/\.[^/.]+$/, "");
+
+      matches.push({
+        name,
+        score: Math.round(score * 100),
+        image: URL.createObjectURL(file)
+      });
+    }
+
+    matches.sort((a, b) => b.score - a.score);
+
+    const top = matches.slice(0, 5);
+
+    const best = top[0];
+
+    const query = `${best.name} prototype apple device EVT teardown`;
+
+    setResults(
+      top.map((r) => ({
+        ...r,
+        links: {
+          ebay: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`,
+          mercari: `https://www.mercari.com/search/?keyword=${encodeURIComponent(query)}`
+        }
+      }))
+    );
 
     setLoading(false);
   }
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>🧠 Marketplace AI Scanner</h1>
+      <h1>🧠 AI Vision Engine (CLIP-style)</h1>
 
-      <p>Upload 1 image → get marketplace matches</p>
+      <h3>Query Image</h3>
+      <input type="file" accept="image/*" onChange={(e) => setQueryImage(e.target.files[0])} />
 
+      <h3>Dataset Images</h3>
       <input
         type="file"
+        multiple
         accept="image/*"
-        onChange={(e) => setImage(e.target.files[0])}
+        onChange={(e) => setDbImages(Array.from(e.target.files))}
       />
 
       <br /><br />
 
       <button onClick={runScan}>
-        {loading ? "Scanning..." : "Scan Marketplaces"}
+        {loading ? "Analyzing..." : "Run AI Vision Match"}
       </button>
 
       <div style={{ marginTop: 20 }}>
         {results.map((r, i) => (
           <div key={i} style={{ border: "1px solid #ddd", padding: 10 }}>
-            <h3>Search: {r.title}</h3>
+            <img src={r.image} width="80" />
+            <h3>{r.name}</h3>
+            <p>Similarity: {r.score}%</p>
 
-            <ul>
-              <li>
-                <a href={r.ebay} target="_blank">eBay results</a>
-              </li>
-              <li>
-                <a href={r.mercari} target="_blank">Mercari results</a>
-              </li>
-              <li>
-                <a href={r.goofish} target="_blank">Goofish results</a>
-              </li>
-            </ul>
+            <a href={r.links.ebay} target="_blank">eBay</a> |{" "}
+            <a href={r.links.mercari} target="_blank">Mercari</a>
           </div>
         ))}
       </div>
     </div>
   );
 }
-      
