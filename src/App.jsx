@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 /**
- * --- IMAGE PROCESSING (pHash-style lightweight) ---
+ * --- IMAGE HASHING (pHash-style lightweight) ---
  */
 
 function getImageData(file) {
@@ -92,9 +92,14 @@ export default function App() {
         name,
         score: Number(score.toFixed(1)),
         preview: URL.createObjectURL(img),
+
+        // 🔥 INSTANT MARKET SEARCH ENGINE LINKS
         links: {
-          ebay: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(name)}`,
-          google: `https://www.google.com/search?q=${encodeURIComponent(name)}`,
+          ebayAll: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(name)}`,
+          ebayBuyNow: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(name)}&LH_BIN=1`,
+          ebaySold: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(name)}&LH_Sold=1&LH_Complete=1`,
+          google: `https://www.google.com/search?q=${encodeURIComponent(name + " prototype device")}`,
+          reddit: `https://www.google.com/search?q=${encodeURIComponent("site:reddit.com " + name + " prototype")}`,
           marketplace: `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(name)}`
         }
       });
@@ -112,9 +117,9 @@ export default function App() {
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial", background: "#f5f5f5" }}>
-      <h1>🧠 Pro Collector Engine</h1>
+      <h1>🧠 Pro Collector Search Engine</h1>
 
-      <p>Upload a query image and a database of known prototypes</p>
+      <p>Upload a prototype image + database of known devices</p>
 
       {/* INPUTS */}
       <div style={{ marginTop: 20 }}>
@@ -139,7 +144,7 @@ export default function App() {
           borderRadius: 6
         }}
       >
-        {loading ? "Scanning..." : "Run Collector Scan"}
+        {loading ? "Scanning Markets..." : "Run Collector Scan"}
       </button>
 
       {/* RESULTS */}
@@ -158,6 +163,7 @@ export default function App() {
                 boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
               }}
             >
+              {/* HEADER */}
               <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <img
                   src={r.preview}
@@ -175,10 +181,7 @@ export default function App() {
                   <h3 style={{ margin: 0 }}>
                     #{i + 1} {r.name}
                   </h3>
-
-                  <p style={{ margin: 0 }}>
-                    Confidence: {r.score}%
-                  </p>
+                  <p style={{ margin: 0 }}>Confidence: {r.score}%</p>
                 </div>
               </div>
 
@@ -202,19 +205,14 @@ export default function App() {
                 />
               </div>
 
-              {/* LINKS */}
-              <div style={{ marginTop: 10 }}>
-                <a href={r.links.ebay} target="_blank">
-                  eBay
-                </a>{" "}
-                |{" "}
-                <a href={r.links.google} target="_blank">
-                  Google
-                </a>{" "}
-                |{" "}
-                <a href={r.links.marketplace} target="_blank">
-                  Marketplace
-                </a>
+              {/* MARKET SEARCH LINKS */}
+              <div style={{ marginTop: 10, fontSize: 14 }}>
+                <a href={r.links.ebayAll} target="_blank">eBay All</a> |{" "}
+                <a href={r.links.ebayBuyNow} target="_blank">Buy Now</a> |{" "}
+                <a href={r.links.ebaySold} target="_blank">Sold Prices</a> |{" "}
+                <a href={r.links.google} target="_blank">Google</a> |{" "}
+                <a href={r.links.reddit} target="_blank">Collectors</a> |{" "}
+                <a href={r.links.marketplace} target="_blank">Marketplace</a>
               </div>
             </div>
           ))}
