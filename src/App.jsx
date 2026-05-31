@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 /**
- * --- IMAGE HASH (pHash-style lightweight) ---
+ * --- IMAGE PROCESSING (pHash-style) ---
  */
 
 function getImageData(file) {
@@ -100,7 +100,8 @@ export default function App() {
 
       matches.push({
         name: img.name.replace(/\.[^/.]+$/, ""),
-        score: Number(score.toFixed(1))
+        score: Number(score.toFixed(1)),
+        preview: URL.createObjectURL(img)
       });
     }
 
@@ -123,6 +124,7 @@ export default function App() {
 
       <p>Upload a prototype image + your database of known devices</p>
 
+      {/* INPUTS */}
       <div style={{ marginTop: 20 }}>
         <h3>Query Image</h3>
         <input type="file" accept="image/*" onChange={handleQuery} />
@@ -164,48 +166,50 @@ export default function App() {
                 boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
               }}
             >
-              <h3>
-                #{i + 1} {r.name}
-              </h3>
+              {/* HEADER WITH THUMBNAIL */}
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <img
+                  src={r.preview}
+                  alt={r.name}
+                  style={{
+                    width: 60,
+                    height: 60,
+                    objectFit: "cover",
+                    borderRadius: 8,
+                    border: "1px solid #ddd"
+                  }}
+                />
 
+                <div>
+                  <h3 style={{ margin: 0 }}>
+                    #{i + 1} {r.name}
+                  </h3>
+
+                  <p style={{ margin: 0 }}>
+                    Confidence: {r.score}%
+                  </p>
+                </div>
+              </div>
+
+              {/* CONFIDENCE BAR */}
               <div
                 style={{
                   height: 10,
                   background: "#eee",
                   borderRadius: 5,
-                  overflow: "hidden"
+                  overflow: "hidden",
+                  marginTop: 10
                 }}
               >
                 <div
                   style={{
                     width: `${r.score}%`,
                     height: "100%",
-                    background: r.score > 70 ? "green" : r.score > 40 ? "orange" : "red"
+                    background:
+                      r.score > 70 ? "green" : r.score > 40 ? "orange" : "red"
                   }}
                 />
               </div>
 
-              <p>Confidence: {r.score}%</p>
-
+              {/* SEARCH LINKS */}
               <div style={{ marginTop: 10 }}>
-                <a href={r.links.ebay} target="_blank">
-                  eBay
-                </a>{" "}
-                |{" "}
-                <a href={r.links.google} target="_blank">
-                  Google
-                </a>{" "}
-                |{" "}
-                <a href={r.links.marketplace} target="_blank">
-                  Marketplace
-                </a>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* HISTORY */}
-      {history.length > 0 && (
-        <div style={{ marginTop: 40 }}>
-          <h2>Recent
