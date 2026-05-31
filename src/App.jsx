@@ -1,66 +1,115 @@
+
 import { useState } from "react";
 
 /**
- * VERY SIMPLE "FAKE PERCEPTUAL HASH"
- * (no libraries, no APIs)
- * This is NOT Google-level AI, but works for basic matching demo
+ * REALISTIC lightweight perceptual hash (no libraries)
+ * - draws image to canvas
+ * - reduces to 8x8 grayscale
+ * - builds binary hash
  */
-function fakeHash(fileName) {
-  return fileName.toLowerCase().replace(/[^a-z0-9]/g, "").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+
+function getImageData(file) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      canvas.width = 8;
+      canvas.height = 8;
+
+      ctx.drawImage(img, 0, 0, 8, 8);
+
+      const data = ctx.getImageData(0, 0, 8, 8).data;
+
+      let gray = [];
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        gray.push((r + g + b) / 3);
+      }
+
+      resolve(gray);
+    };
+  });
 }
 
-function similarity(hash1, hash2) {
-  const diff = Math.abs(hash1 - hash2);
-  return Math.max(0, 100 - diff % 100);
+function buildHash(gray) {
+  const avg = gray.reduce((a, b) => a + b, 0) / gray.length;
+  return gray.map((v) => (v > avg ? 1 : 0)).join("");
+}
+
+function hammingDistance(a, b) {
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) diff++;
+  }
+  return diff;
+}
+
+function similarity(a, b) {
+  const dist = hammingDistance(a, b);
+  return Math.max(0, 100 - dist * 2.5);
 }
 
 export default function App() {
-  const [queryImage, setQueryImage] = useState(null);
-  const [dbImages, setDbImages] = useState([]);
+  const [query, setQuery] = useState(null);
+  const [db, setDb] = useState([]);
   const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleQuery(e) {
-    setQueryImage(e.target.files[0]);
+  async function handleQuery(e) {
+    setQuery(e.target.files[0]);
   }
 
-  function handleDbUpload(e) {
-    setDbImages([...e.target.files]);
+  async function handleDb(e) {
+    setDb(Array.from(e.target.files));
   }
 
-  function runMatch() {
-    if (!queryImage || dbImages.length === 0) {
-      alert("Upload query image + database images first");
+  async function runMatch() {
+    if (!query || db.length === 0) {
+      alert("Upload query + database images first");
       return;
     }
 
-    const queryHash = fakeHash(queryImage.name);
+    setLoading(true);
+
+    const queryGray = await getImageData(query);
+    const queryHash = buildHash(queryGray);
 
     let best = { name: "No match", score: 0 };
 
-    dbImages.forEach((img) => {
-      const h = fakeHash(img.name);
-      const score = similarity(queryHash, h);
+    for (let img of db) {
+      const gray = await getImageData(img);
+      const hash = buildHash(gray);
+
+      const score = similarity(queryHash, hash);
 
       if (score > best.score) {
         best = { name: img.name, score };
       }
-    });
+    }
 
-    setResult(`${best.name} (match: ${best.score.toFixed(1)}%)`);
+    setResult(`${best.name} (${best.score.toFixed(1)}% match)`);
+    setLoading(false);
   }
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
       <h1>Prototype Visual Matcher</h1>
 
-      <h3>1. Upload image to identify</h3>
+      <h3>Query Image</h3>
       <input type="file" accept="image/*" onChange={handleQuery} />
 
-      <h3 style={{ marginTop: 20 }}>2. Upload database images</h3>
-      <input type="file" accept="image/*" multiple onChange={handleDbUpload} />
+      <h3>Database Images</h3>
+      <input type="file" accept="image/*" multiple onChange={handleDb} />
 
       <button onClick={runMatch} style={{ marginTop: 20 }}>
-        Run Match
+        {loading ? "Matching..." : "Run Visual Match"}
       </button>
 
       {result && (
