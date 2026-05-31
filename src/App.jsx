@@ -5,7 +5,7 @@ function buildQuery(fileName) {
     fileName
       .replace(/\.[^/.]+$/, "")
       .replace(/IMG|DSC|photo|image|Screenshot|capture/gi, "")
-      .trim() + " prototype EVT DVT Apple device"
+      .trim() + " prototype EVT Apple device"
   );
 }
 
@@ -13,9 +13,12 @@ export default function App() {
   const [image, setImage] = useState(null);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   function handleImage(e) {
     setImage(e.target.files[0]);
+    setResults([]);
+    setError("");
   }
 
   async function runScan() {
@@ -25,9 +28,13 @@ export default function App() {
     }
 
     setLoading(true);
+    setError("");
+    setResults([]);
 
     try {
       const query = buildQuery(image.name);
+
+      console.log("QUERY:", query);
 
       const res = await fetch("/api/search", {
         method: "POST",
@@ -37,28 +44,35 @@ export default function App() {
         body: JSON.stringify({ query })
       });
 
+      console.log("STATUS:", res.status);
+
+      const text = await res.text();
+      console.log("RAW RESPONSE:", text);
+
       if (!res.ok) {
-        throw new Error("Backend error: " + res.status);
+        throw new Error(`Server error ${res.status}`);
       }
 
-      const data = await res.json();
+      const data = JSON.parse(text);
 
-      console.log("BACKEND RESPONSE:", data);
+      if (!data.results) {
+        throw new Error("No results returned from backend");
+      }
 
-      setResults(data.results || []);
+      setResults(data.results);
     } catch (err) {
       console.error(err);
-      alert("Backend failed. Check Vercel deployment.");
+      setError("Backend failed or returned invalid data.");
     }
 
     setLoading(false);
   }
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial" }}>
+    <div style={{ padding: 20, fontFamily: "Arial", background: "#f5f5f5" }}>
       <h1>🧠 Prototype Marketplace Scanner</h1>
 
-      <p>Upload 1 image → scan marketplace listings</p>
+      <p>Upload one image → scan marketplace listings</p>
 
       <input type="file" accept="image/*" onChange={handleImage} />
 
@@ -79,26 +93,30 @@ export default function App() {
         {loading ? "Scanning..." : "Scan Listings"}
       </button>
 
-      <div style={{ marginTop: 20 }}>
-        {results.length === 0 && !loading && (
-          <p>No results yet.</p>
-        )}
+      {/* ERROR DISPLAY */}
+      {error && (
+        <p style={{ color: "red", marginTop: 10 }}>
+          {error}
+        </p>
+      )}
 
+      {/* RESULTS */}
+      <div style={{ marginTop: 20 }}>
         {results.map((r, i) => (
           <div
             key={i}
             style={{
-              border: "1px solid #ddd",
+              background: "#fff",
               padding: 10,
               marginBottom: 10,
-              borderRadius: 8
+              borderRadius: 8,
+              border: "1px solid #ddd"
             }}
           >
             {r.image && (
               <img
                 src={r.image}
                 width="80"
-                alt=""
                 style={{ borderRadius: 6 }}
               />
             )}
@@ -115,4 +133,4 @@ export default function App() {
       </div>
     </div>
   );
-} 
+}
