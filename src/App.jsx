@@ -3,19 +3,26 @@ export default function App() {
     <div
       style={{
         minHeight: "100vh",
-        background: "#111827",
+        backgroundColor: "#111827",
         color: "white",
         padding: "20px",
-        fontFamily: "Arial"
+        fontFamily: "Arial, sans-serif",
       }}
     >
-      <h1>Prototype Visual Matcher</h1>
+      <h1 style={{ fontSize: "32px" }}>
+        Prototype Visual Matcher
+      </h1>
+
       <p>
-        Upload an Apple prototype image and search for visually similar
-        eBay/PicClick listings.
+        Upload an Apple prototype image to search
+        eBay and PicClick for visually similar listings.
       </p>
 
-      <input type="file" accept="image/*" />
+      <input
+        type="file"
+        accept="image/*"
+        style={{ marginTop: "20px" }}
+      />
 
       <div style={{ marginTop: "20px" }}>
         <button
@@ -23,17 +30,16 @@ export default function App() {
             padding: "12px 20px",
             borderRadius: "12px",
             border: "none",
-            fontSize: "16px"
+            cursor: "pointer",
           }}
         >
           Scan Listings
         </button>
       </div>
 
-      <div style={{ marginTop: "30px" }}>
-        <h2>Future Matches</h2>
-        <p>94% match — hidden iPhone prototype listing</p>
-        <p>87% match — MacBook engineering unit</p>
+      <div style={{ marginTop: "40px" }}>
+        <h2>Prototype Match Results</h2>
+        <p>Waiting for scan...</p>
       </div>
     </div>
   );
