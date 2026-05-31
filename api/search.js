@@ -1,48 +1,45 @@
-import * as cheerio from "cheerio";
-
 export default async function handler(req, res) {
-  const { query } = req.body;
-
-  if (!query) {
-    return res.status(400).json({ error: "Missing query" });
-  }
-
   try {
-    const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`;
+    const { query } = req.body || {};
 
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-      }
+    if (!query) {
+      return res.status(400).json({
+        results: [],
+        error: "No query provided"
+      });
+    }
+
+    // CLEAN fallback-safe response (NO scraping yet)
+    const ebayUrl = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`;
+    const mercariUrl = `https://www.mercari.com/search/?keyword=${encodeURIComponent(query)}`;
+    const goofishUrl = `https://www.goofish.com/search?q=${encodeURIComponent(query)}`;
+
+    return res.status(200).json({
+      results: [
+        {
+          title: `eBay results for: ${query}`,
+          price: "Click to view live listings",
+          image: "https://via.placeholder.com/120",
+          url: ebayUrl
+        },
+        {
+          title: `Mercari results for: ${query}`,
+          price: "Click to view listings",
+          image: "https://via.placeholder.com/120",
+          url: mercariUrl
+        },
+        {
+          title: `Goofish results for: ${query}`,
+          price: "Click to view listings",
+          image: "https://via.placeholder.com/120",
+          url: goofishUrl
+        }
+      ]
     });
-
-    const html = await response.text();
-
-    const $ = cheerio.load(html);
-
-    let results = [];
-
-    $(".s-item").each((i, el) => {
-      const title = $(el).find(".s-item__title").text();
-      const link = $(el).find("a.s-item__link").attr("href");
-      const image = $(el).find(".s-item__image-img").attr("src");
-      const price = $(el).find(".s-item__price").text();
-
-      if (title && link && title !== "Shop on eBay") {
-        results.push({
-          title,
-          url: link,
-          image: image || "",
-          price: price || "N/A"
-        });
-      }
+  } catch (err) {
+    return res.status(500).json({
+      results: [],
+      error: "Backend crash"
     });
-
-    res.status(200).json({
-      results: results.slice(0, 10)
-    });
-  } catch (e) {
-    res.status(500).json({ error: "Scraper failed" });
   }
 }
