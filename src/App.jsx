@@ -1,84 +1,94 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 
-const MOCK_RESULTS = [
+const DATABASE = [
   {
     id: 1,
-    title: "iPhone Prototype - Early EVT Unit",
-    platform: "eBay",
-    match: "94%",
-    price: "$2,500 - $4,000"
+    name: "iPhone 2G Prototype EVT",
+    tags: ["iphone", "prototype", "evt"],
+    imageHint: "iphone early prototype"
   },
   {
     id: 2,
-    title: "Apple Engineering Sample Device",
-    platform: "Goofish",
-    match: "88%",
-    price: "$1,800 - $3,200"
+    name: "iPod Touch Engineering Sample",
+    tags: ["ipod", "touch", "dvt"],
+    imageHint: "ipod prototype"
   },
   {
     id: 3,
-    title: "Vintage iOS Development Phone",
-    platform: "Mercari",
-    match: "81%",
-    price: "$900 - $1,500"
+    name: "MacBook Unibody EVT Unit",
+    tags: ["macbook", "prototype", "aluminum"],
+    imageHint: "macbook prototype"
   }
 ]
 
+function fakeScore(input, item) {
+  const text = input.toLowerCase()
+  let score = 0
+
+  item.tags.forEach(tag => {
+    if (text.includes(tag)) score += 40
+  })
+
+  if (text.length > 0 && item.name.toLowerCase().includes(text)) {
+    score += 30
+  }
+
+  return Math.min(score, 99)
+}
+
 export default function App() {
   const [image, setImage] = useState(null)
-  const [results, setResults] = useState([])
+  const [query, setQuery] = useState("")
 
-  const handleUpload = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
+  const results = useMemo(() => {
+    if (!query && !image) return []
 
-    setImage(URL.createObjectURL(file))
-    setResults(MOCK_RESULTS)
-  }
+    return DATABASE
+      .map(item => ({
+        ...item,
+        score: fakeScore(query, item)
+      }))
+      .sort((a, b) => b.score - a.score)
+  }, [query, image])
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial", maxWidth: 900, margin: "0 auto" }}>
       <h1>Prototype Image Matcher</h1>
 
-      {/* Upload */}
-      <input type="file" accept="image/*" onChange={handleUpload} />
+      {/* Upload (simulated for now) */}
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => setImage(e.target.files[0])}
+      />
 
-      {/* Preview */}
-      {image && (
-        <div style={{ marginTop: 20 }}>
-          <h3>Uploaded Image</h3>
-          <img
-            src={image}
-            alt="upload"
-            style={{ width: 250, borderRadius: 10 }}
-          />
-        </div>
-      )}
+      <input
+        placeholder="Describe image (e.g. iphone prototype EVT)"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        style={{
+          width: "100%",
+          padding: 10,
+          marginTop: 10,
+          marginBottom: 20
+        }}
+      />
 
-      {/* Results */}
-      {results.length > 0 && (
-        <div style={{ marginTop: 30 }}>
-          <h3>Matches</h3>
-
-          <div style={{ display: "grid", gap: 10 }}>
-            {results.map(item => (
-              <div
-                key={item.id}
-                style={{
-                  border: "1px solid #ddd",
-                  padding: 15,
-                  borderRadius: 10
-                }}
-              >
-                <b>{item.title}</b>
-                <div>Platform: {item.platform}</div>
-                <div>Match: {item.match}</div>
-                <div>Estimated price: {item.price}</div>
-              </div>
-            ))}
+      <div style={{ display: "grid", gap: 10 }}>
+        {results.map(item => (
+          <div
+            key={item.id}
+            style={{
+              border: "1px solid #ddd",
+              padding: 15,
+              borderRadius: 10
+            }}
+          >
+            <b>{item.name}</b>
+            <div>Match Score: {item.score}%</div>
           </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   )
 }
