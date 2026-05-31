@@ -1,146 +1,75 @@
 import { useState } from "react";
 
-/**
- * ----------------------------
- * SIMPLE IMAGE → TEXT SIGNAL
- * (no APIs, no backend)
- * ----------------------------
- */
-
-function extractQuery(fileName) {
-  const base = fileName.replace(/\.[^/.]+$/, "");
-
-  // clean junk names
-  const cleaned = base
-    .replace(/IMG|DSC|Screenshot|photo|image|file|capture/gi, "")
-    .replace(/[_-]/g, " ")
-    .trim();
-
-  // collector enrichment keywords
-  return `${cleaned} prototype EVT DVT Apple device`;
-}
-
-/**
- * ----------------------------
- * MARKETPLACE SCAN LINKS
- * ----------------------------
- */
-
-function buildScanLinks(query) {
-  return {
-    ebayAll: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`,
-    ebaySold: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}&LH_Complete=1&LH_Sold=1`,
-    mercari: `https://www.mercari.com/search/?keyword=${encodeURIComponent(query)}`,
-    goofish: `https://www.goofish.com/search?q=${encodeURIComponent(query)}`
-  };
+function buildQuery(fileName) {
+  return (
+    fileName
+      .replace(/\.[^/.]+$/, "")
+      .replace(/IMG|DSC|photo|image|Screenshot/gi, "")
+      .trim() + " prototype EVT Apple device"
+  );
 }
 
 export default function App() {
   const [image, setImage] = useState(null);
-  const [scan, setScan] = useState(null);
+  const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
 
   function handleImage(e) {
     setImage(e.target.files[0]);
   }
 
-  function runScan() {
-    if (!image) {
-      alert("Upload an image first");
-      return;
-    }
+  async function runScan() {
+    if (!image) return alert("Upload image first");
 
     setLoading(true);
 
-    const query = extractQuery(image.name);
-    const links = buildScanLinks(query);
+    const query = buildQuery(image.name);
 
-    setScan({
-      query,
-      preview: URL.createObjectURL(image),
-      links
+    const res = await fetch("/api/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query })
     });
 
+    const data = await res.json();
+
+    setResults(data.results || []);
     setLoading(false);
   }
 
   return (
-    <div style={{ padding: 20, fontFamily: "Arial", background: "#f5f5f5" }}>
-      <h1>🧠 Prototype Marketplace Scanner</h1>
+    <div style={{ padding: 20, fontFamily: "Arial" }}>
+      <h1>🧠 Prototype Marketplace Scanner (Backend)</h1>
 
-      <p>Upload 1 image → instantly scan marketplaces</p>
-
-      {/* INPUT */}
       <input type="file" accept="image/*" onChange={handleImage} />
 
       <br /><br />
 
-      <button
-        onClick={runScan}
-        style={{
-          padding: "10px 15px",
-          background: "#111",
-          color: "#fff",
-          border: "none",
-          borderRadius: 6,
-          cursor: "pointer"
-        }}
-      >
+      <button onClick={runScan}>
         {loading ? "Scanning..." : "Scan Marketplaces"}
       </button>
 
-      {/* RESULTS */}
-      {scan && (
-        <div style={{ marginTop: 30 }}>
-          <h2>Scan Result</h2>
+      <div style={{ marginTop: 20 }}>
+        {results.map((r, i) => (
+          <div
+            key={i}
+            style={{
+              border: "1px solid #ddd",
+              padding: 10,
+              marginBottom: 10,
+              borderRadius: 8
+            }}
+          >
+            <h3>{r.title}</h3>
+            <p>{r.source}</p>
+            <p>{r.price}</p>
 
-          <div style={{ display: "flex", gap: 12 }}>
-            <img
-              src={scan.preview}
-              alt=""
-              style={{
-                width: 80,
-                height: 80,
-                objectFit: "cover",
-                borderRadius: 8
-              }}
-            />
-
-            <div>
-              <p><b>Search Query:</b></p>
-              <p>{scan.query}</p>
-            </div>
+            <a href={r.url} target="_blank">
+              View Listings
+            </a>
           </div>
-
-          <h3 style={{ marginTop: 20 }}>Marketplace Scan</h3>
-
-          <ul>
-            <li>
-              <a href={scan.links.ebayAll} target="_blank">
-                eBay Active Listings
-              </a>
-            </li>
-
-            <li>
-              <a href={scan.links.ebaySold} target="_blank">
-                eBay Sold Prices
-              </a>
-            </li>
-
-            <li>
-              <a href={scan.links.mercari} target="_blank">
-                Mercari Results
-              </a>
-            </li>
-
-            <li>
-              <a href={scan.links.goofish} target="_blank">
-                Goofish Results
-              </a>
-            </li>
-          </ul>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 }
