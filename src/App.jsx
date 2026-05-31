@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 /**
- * --- IMAGE PROCESSING (pHash-style) ---
+ * --- IMAGE PROCESSING (pHash-style lightweight) ---
  */
 
 function getImageData(file) {
@@ -52,18 +52,6 @@ function similarity(a, b) {
   return Math.max(0, 100 - dist * 2.5);
 }
 
-/**
- * --- SEARCH LINKS ---
- */
-
-function generateSearchLinks(query) {
-  return {
-    ebay: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`,
-    google: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-    marketplace: `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(query)}`
-  };
-}
-
 export default function App() {
   const [queryImage, setQueryImage] = useState(null);
   const [dbImages, setDbImages] = useState([]);
@@ -71,11 +59,11 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  async function handleQuery(e) {
+  function handleQuery(e) {
     setQueryImage(e.target.files[0]);
   }
 
-  async function handleDb(e) {
+  function handleDb(e) {
     setDbImages(Array.from(e.target.files));
   }
 
@@ -98,19 +86,23 @@ export default function App() {
 
       const score = similarity(queryHash, hash);
 
+      const name = img.name.replace(/\.[^/.]+$/, "");
+
       matches.push({
-        name: img.name.replace(/\.[^/.]+$/, ""),
+        name,
         score: Number(score.toFixed(1)),
-        preview: URL.createObjectURL(img)
+        preview: URL.createObjectURL(img),
+        links: {
+          ebay: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(name)}`,
+          google: `https://www.google.com/search?q=${encodeURIComponent(name)}`,
+          marketplace: `https://www.facebook.com/marketplace/search/?query=${encodeURIComponent(name)}`
+        }
       });
     }
 
     matches.sort((a, b) => b.score - a.score);
 
-    const top5 = matches.slice(0, 5).map((m) => ({
-      ...m,
-      links: generateSearchLinks(m.name)
-    }));
+    const top5 = matches.slice(0, 5);
 
     setResults(top5);
     setHistory((h) => [top5[0], ...h].slice(0, 10));
@@ -122,7 +114,7 @@ export default function App() {
     <div style={{ padding: 20, fontFamily: "Arial", background: "#f5f5f5" }}>
       <h1>🧠 Pro Collector Engine</h1>
 
-      <p>Upload a prototype image + your database of known devices</p>
+      <p>Upload a query image and a database of known prototypes</p>
 
       {/* INPUTS */}
       <div style={{ marginTop: 20 }}>
@@ -147,7 +139,7 @@ export default function App() {
           borderRadius: 6
         }}
       >
-        {loading ? "Scanning Collection..." : "Run Collector Scan"}
+        {loading ? "Scanning..." : "Run Collector Scan"}
       </button>
 
       {/* RESULTS */}
@@ -166,7 +158,6 @@ export default function App() {
                 boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
               }}
             >
-              {/* HEADER WITH THUMBNAIL */}
               <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <img
                   src={r.preview}
@@ -191,7 +182,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* CONFIDENCE BAR */}
+              {/* BAR */}
               <div
                 style={{
                   height: 10,
@@ -211,5 +202,58 @@ export default function App() {
                 />
               </div>
 
-              {/* SEARCH LINKS */}
+              {/* LINKS */}
               <div style={{ marginTop: 10 }}>
+                <a href={r.links.ebay} target="_blank">
+                  eBay
+                </a>{" "}
+                |{" "}
+                <a href={r.links.google} target="_blank">
+                  Google
+                </a>{" "}
+                |{" "}
+                <a href={r.links.marketplace} target="_blank">
+                  Marketplace
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* HISTORY */}
+      {history.length > 0 && (
+        <div style={{ marginTop: 40 }}>
+          <h2>Recent Searches</h2>
+
+          {history.map((h, i) => (
+            <div
+              key={i}
+              style={{
+                display: "flex",
+                gap: 8,
+                alignItems: "center",
+                marginBottom: 6
+              }}
+            >
+              <img
+                src={h.preview}
+                alt=""
+                style={{
+                  width: 25,
+                  height: 25,
+                  borderRadius: 4,
+                  objectFit: "cover"
+                }}
+              />
+
+              <span>
+                {h.name} ({h.score}%)
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
