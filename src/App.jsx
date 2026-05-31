@@ -1,101 +1,71 @@
 import { useState } from "react";
 
-const database = [
-  {
-    name: "iPhone 2G EVT Prototype (2007)",
-    keywords: ["iphone", "2g", "2007", "early", "evT", "black"]
-  },
-  {
-    name: "iPhone Engineering Sample (Pre-Release)",
-    keywords: ["iphone", "prototype", "engineering", "sample", "dev"]
-  },
-  {
-    name: "MacBook Engineering Unit",
-    keywords: ["macbook", "logic", "board", "prototype", "apple"]
-  },
-  {
-    name: "Apple Internal Diagnostic Device",
-    keywords: ["apple", "diagnostic", "internal", "tool", "service"]
-  }
-];
+/**
+ * VERY SIMPLE "FAKE PERCEPTUAL HASH"
+ * (no libraries, no APIs)
+ * This is NOT Google-level AI, but works for basic matching demo
+ */
+function fakeHash(fileName) {
+  return fileName.toLowerCase().replace(/[^a-z0-9]/g, "").split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+}
 
-function matchPrototype(fileName = "") {
-  const text = fileName.toLowerCase();
-
-  let bestMatch = {
-    name: "Unknown Prototype Device",
-    score: 0
-  };
-
-  database.forEach((item) => {
-    let score = 0;
-
-    item.keywords.forEach((key) => {
-      if (text.includes(key.toLowerCase())) {
-        score += 1;
-      }
-    });
-
-    if (score > bestMatch.score) {
-      bestMatch = { name: item.name, score };
-    }
-  });
-
-  return bestMatch;
+function similarity(hash1, hash2) {
+  const diff = Math.abs(hash1 - hash2);
+  return Math.max(0, 100 - diff % 100);
 }
 
 export default function App() {
-  const [image, setImage] = useState(null);
-  const [preview, setPreview] = useState(null);
+  const [queryImage, setQueryImage] = useState(null);
+  const [dbImages, setDbImages] = useState([]);
   const [result, setResult] = useState("");
 
-  function handleChange(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setImage(file);
-    setPreview(URL.createObjectURL(file));
-    setResult("");
+  function handleQuery(e) {
+    setQueryImage(e.target.files[0]);
   }
 
-  function handleMatch() {
-    if (!image) return alert("Upload an image first");
+  function handleDbUpload(e) {
+    setDbImages([...e.target.files]);
+  }
 
-    const match = matchPrototype(image.name);
+  function runMatch() {
+    if (!queryImage || dbImages.length === 0) {
+      alert("Upload query image + database images first");
+      return;
+    }
 
-    const searchLink =
-      "https://www.ebay.com/sch/i.html?_nkw=" +
-      encodeURIComponent(match.name);
+    const queryHash = fakeHash(queryImage.name);
 
-    setResult(
-      match.name +
-        " (confidence: " +
-        Math.min(100, match.score * 35) +
-        "%)"
-    );
+    let best = { name: "No match", score: 0 };
 
-    alert("Marketplace search: " + searchLink);
+    dbImages.forEach((img) => {
+      const h = fakeHash(img.name);
+      const score = similarity(queryHash, h);
+
+      if (score > best.score) {
+        best = { name: img.name, score };
+      }
+    });
+
+    setResult(`${best.name} (match: ${best.score.toFixed(1)}%)`);
   }
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
       <h1>Prototype Visual Matcher</h1>
 
-      <input type="file" accept="image/*" onChange={handleChange} />
+      <h3>1. Upload image to identify</h3>
+      <input type="file" accept="image/*" onChange={handleQuery} />
 
-      {preview && (
-        <div style={{ marginTop: 20 }}>
-          <img src={preview} width="250" />
-        </div>
-      )}
+      <h3 style={{ marginTop: 20 }}>2. Upload database images</h3>
+      <input type="file" accept="image/*" multiple onChange={handleDbUpload} />
 
-      <button onClick={handleMatch} style={{ marginTop: 10 }}>
-        Run AI Match
+      <button onClick={runMatch} style={{ marginTop: 20 }}>
+        Run Match
       </button>
 
       {result && (
         <div style={{ marginTop: 20 }}>
-          <h3>Result:</h3>
+          <h3>Best Match:</h3>
           <p>{result}</p>
         </div>
       )}
